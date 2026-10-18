@@ -240,6 +240,8 @@ describe("@solidjs/signals bundled under `sideEffects: false`", () => {
   // store engine. The fixture imports the package by name (self-reference)
   // so the bundler reads package.json.
   const pkg = fileURLToPath(new URL("..", import.meta.url));
+  // The published name (a fork publishes under its own scope).
+  const PKG: string = JSON.parse(readFileSync(join(pkg, "package.json"), "utf8")).name;
   async function bundle(contents: string, conditions: string[]) {
     const { build } = await import("esbuild");
     const result = await build({
@@ -265,12 +267,12 @@ describe("@solidjs/signals bundled under `sideEffects: false`", () => {
     execFileSync(process.execPath, ["--input-type=module"], { input: code, encoding: "utf8" });
   const REPORT = `.then(() => process.stdout.write("ok"), e => process.stdout.write(String(e)))`;
   const STORE_APP = `
-    import { action, affects, createStore } from "@solidjs/signals";
+    import { action, affects, createStore } from "${PKG}";
     const [store] = createStore({ n: 1, row: { m: 2 } });
     action(function* () { affects(store, "n"); affects(store.row); })()${REPORT};
   `;
   const AFFECTS_APP = `
-    import { action, affects, createEffect, createRoot, createSignal } from "@solidjs/signals";
+    import { action, affects, createEffect, createRoot, createSignal } from "${PKG}";
     const n = createRoot(() => {
       const [n] = createSignal(1);
       createEffect(n, () => {});
@@ -279,7 +281,7 @@ describe("@solidjs/signals bundled under `sideEffects: false`", () => {
     action(function* () { affects(n); })()${REPORT};
   `;
   const SIGNALS_APP = `
-    import { createEffect, createRoot, createSignal } from "@solidjs/signals";
+    import { createEffect, createRoot, createSignal } from "${PKG}";
     createRoot(() => {
       const [n] = createSignal(1);
       createEffect(n, v => { console.log(v); });
@@ -304,7 +306,7 @@ describe("@solidjs/signals bundled under `sideEffects: false`", () => {
         `dist/${tier}/store/affects.js`
       );
       // A store app that never declares a mark carries none of it.
-      const plain = `import { createStore } from "@solidjs/signals"; console.log(createStore({ n: 1 }));`;
+      const plain = `import { createStore } from "${PKG}"; console.log(createStore({ n: 1 }));`;
       expect((await bundle(plain, [...BUILDS[tier]])).retained).not.toContain(
         `dist/${tier}/store/affects.js`
       );

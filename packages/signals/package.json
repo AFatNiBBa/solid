@@ -1,13 +1,13 @@
 {
-  "name": "@solidjs/signals",
-  "version": "2.0.0-rc.15",
+  "name": "@seanalunni/signals",
+  "version": "2.0.0-rc.15.newest.1",
   "description": "Solid's reactive primitives: signals, memos, effects, stores, and async-aware computations.",
   "author": "Ryan Carniato",
   "license": "MIT",
   "homepage": "https://solidjs.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/solidjs/solid.git",
+    "url": "git+https://github.com/AFatNiBBa/solid.git",
     "directory": "packages/signals"
   },
   "publishConfig": {

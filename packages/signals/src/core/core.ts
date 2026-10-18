@@ -1634,6 +1634,30 @@ export function unflushedValue(el: Signal<any> | Computed<any>): unknown {
   if (el._config & CONFIG_HELD) return el._x!._flushedAt === clock ? el._x!._flushed : NOT_PENDING;
   return el._value;
 }
+/** FORK `newest()` (verdict.ts): open windows, pulls included. While it is
+ * non-zero a pass reads a write not yet flushed as its staged value, so a
+ * memo `newest` brings current derives from the writes it depends on. The
+ * value the pass stages is the one the carrying flush would derive: plain
+ * readers keep the flushed value until then (A28) and the flush does not
+ * recompute it again. */
+export let newestDepth = 0;
+export function setNewestDepth(depth: number): void {
+  newestDepth = depth;
+}
+/** FORK: written since the last flush and not held by a transaction. */
+export function isUnflushedWrite(el: Signal<any> | Computed<any>): boolean {
+  return !globalQueue._running && el._pendingValue !== NOT_PENDING && !(el._config & CONFIG_HELD);
+}
+/** FORK: bring a computed current outside a flush, with no reader to sit
+ * above it — `pullComputed`'s pull for an untracked `newest` read. Only the
+ * node and what it depends on recompute; effects wait for the flush. */
+export function pullUnflushed(el: Computed<any>): void {
+  if (el._height >= dirtyQueue._min) {
+    markHeap(dirtyQueue);
+    updateIfNecessary(el);
+  }
+}
+
 /** A28: a held node rewritten outside a flush keeps the staging the last
  * flush left (`_flushed`) until the flush that carries the rewrite — the
  * stash is stamped with the clock, which that flush advances. */
@@ -1939,6 +1963,12 @@ export function serve(el: Signal<any> | Computed<any>, c: Computed<any> | null):
     (!c || spectating || c._config & CONFIG_CHILDREN_FORBIDDEN)
   )
     throw new NotReadyError(null);
+  // FORK: a pass `newest()` pulls derives from the writes not yet flushed.
+  if (newestDepth !== 0 && c !== null && unflushedStaged && isUnflushedWrite(el)) {
+    stagedRead(c, el);
+    if (el._config & CONFIG_STAGED_ERROR) throw el._pendingValue;
+    return el._pendingValue;
+  }
   const u = c && unflushedStaged ? unflushedValue(el) : NOT_PENDING;
   if (u !== NOT_PENDING) {
     markLateLinker(c!);

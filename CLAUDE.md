@@ -11,6 +11,11 @@ pnpm + turbo monorepo, ~140k LOC:
 - `packages/{h,html,universal,element,diagnostics}`: hyperscript, tagged templates, custom renderers, web components, diagnostics harness
 - Every package builds in three tiers (`dev`, `observe`, `prod`) by replacing the `"_SOLID_DEV_"` / `"_SOLID_OBSERVE_"` literals
 
+## Fork changes (goal: publish a modified `@solidjs/signals` to npm)
+- Published as `@seanalunni/signals` (npm user `seanalunni`). Inside the monorepo every package still imports `@solidjs/signals`: `pnpm-workspace.yaml` overrides it with `workspace:@seanalunni/signals@*` (an alias to the local package). Apps use it the same way, with an `overrides` entry `"@solidjs/signals": "npm:@seanalunni/signals@<version>"`, so `solid-js` and the app share one copy. Tests that import the package by its own name read it from `package.json` (`tests/dist-artifacts.test.ts`)
+- `newest(fn)` (`packages/signals/src/core/verdict.ts`, exported from the package entry): reads like inside 1.x `batch` — unflushed writes are visible and a memo they reach is recomputed on the spot (only it and its sources, `pullUnflushed` in core.ts), skipping holds too; no effect runs before the flush. It is the writer's view (a functional setter's `prev`, unflushed optimistic guesses included). Plain reads, `latest` and `isPending` keep the upstream semantics (A28/F-10). Tests: `tests/newest.test.ts`. User-facing explanation (for Solid users, not engine developers): `packages/signals/NEWEST.md`, keep it in sync. Fork code is marked with `FORK` comments
+- Rejected alternative: making every plain read batch-like. Holds made it inconsistent: a read before the flush could show the write and the flush could then hold it (value flickering back), and predicting a hold needs computing everything downstream, async included. Upstream also groups holds per flush, not per dependency tree: writes of the same tick are held together
+
 ## Where to read first
 - `documentation/solid-2.0/MIGRATION.md` and `packages/solid/CHEATSHEET.md`: the 2.0 API at a glance
 - `documentation/solid-2.0/NN-*.md`: per-topic RFCs (reactivity, stores, async, actions, DOM, diagnostics, server functions, server components, SSR)
@@ -29,6 +34,7 @@ pnpm + turbo monorepo, ~140k LOC:
 - Git for Windows ships `core.autocrlf=true` system-wide, but scripts and tests split on `\n`: `.gitattributes` has `* text=auto eol=lf` so every clone checks out LF (the one file committed with CRLF upstream is excluded with `-text`). Git reads `.gitattributes` from the index during checkout, so a change to it only applies to a working tree re-checked out after it is committed or staged
 - The signals suite passes on Windows after these fixes (keep them in mind when writing new tests/scripts): `scripts/rules-index.mjs` normalizes paths to `/` (the generated RULES-INDEX.md and the module → namespace regexes depend on it), `tests/treeshake.test.ts` normalizes Rollup ids and roots with `toPosix`, `tests/dist-artifacts.test.ts` passes bundles to `node` via stdin instead of `-e` (command-line limit, `ENAMETOOLONG`)
 - Mass-deleting tracked files makes VS Code's git extension grab `.git/index.lock`: git commands run right after may fail with "index.lock: File exists" and need a retry
+- Outside signals, more tests and builds break only on Windows (not investigated further): `packages/solid` `published-declarations.spec.ts` (3 tests) and `cross-package-fields.spec.ts` (needs `packages/web/dist`); `packages/web` `build` fails in `types:copy-jsx`, which `spawnSync`s `prettier` without a shell (on Windows the binary is `prettier.cmd`). `packages/solid` tests also need `pnpm types` run first (turbo does it in CI)
 - Rollup prints TypeScript errors from a test file (`tests/store/derived-presence-async-3726.test.ts`) during `build:js`: they don't fail the build
 
 ## How to work

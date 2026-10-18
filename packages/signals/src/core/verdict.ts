@@ -35,18 +35,22 @@ import {
   context,
   joinPass,
   markLateLinker,
+  newestDepth,
   pullComputed,
+  pullUnflushed,
+  setNewestDepth,
   setVerdict,
   spectating,
   strictRead,
   tracking,
+  unflushedStaged,
   unflushedValue,
   verdict
 } from "./core.js";
 import { warnStrictReadUntracked } from "./dev.js";
 import { NotReadyError } from "./error.js";
 import { link } from "./graph.js";
-import { display, laneValueOf, verdictLane } from "./lanes.js";
+import { display, laneValueOf, pendingGuessOf, verdictLane } from "./lanes.js";
 import { enqueueSub } from "./heap.js";
 import {
   flushTransaction,
@@ -263,6 +267,50 @@ export function latest<T>(fn: () => T): T {
 }
 
 /**
+ * FORK. Reads `fn` as the writer sees it: the most recent value of everything
+ * it reads, ahead of both the flush and any hold. Where `latest` serves the
+ * flushed proposal, `newest` also serves the writes made since the last
+ * flush, and brings a memo they reach current on the spot — only that memo
+ * and what it depends on, like a read inside 1.x `batch`; nothing else
+ * recomputes and no effect runs until the flush. The value of a signal is
+ * the `prev` a functional setter would receive (an unflushed optimistic guess
+ * included).
+ *
+ * Plain reads are untouched: they keep serving the flushed, unheld value, and
+ * `isPending` keeps answering for the screen.
+ *
+ * @param fn expression to read; read the values in question inside it
+ *
+ * @returns what `fn` returns, computed from the most recent values
+ *
+ * @example
+ * ```ts
+ * const [a, setA] = createSignal(0);
+ * const b = createMemo(() => a() + 1);
+ *
+ * setA(1);
+ * a();         // 0, until the flush
+ * newest(a);   // 1
+ * newest(b);   // 2, recomputes b only
+ * ```
+ */
+export function newest<T>(fn: () => T): T {
+  markVerdictReader(2);
+  const prev = latestActive,
+    prevVerdict = verdict;
+  latestActive = true;
+  setNewestDepth(newestDepth + 1);
+  setVerdict(verdictValue);
+  try {
+    return fn();
+  } finally {
+    latestActive = prev;
+    setNewestDepth(newestDepth - 1);
+    setVerdict(prevVerdict);
+  }
+}
+
+/**
  * Reports whether what `fn` reads is still waiting on an update. Read the
  * values in question inside `fn`: the probe answers `true` while any of
  * them depends on a change that is in flight — a write or an async source
@@ -370,6 +418,22 @@ function verdictValue(el: Signal<any> | Computed<any>, c: Computed<any> | null):
       pullComputed(owner, c);
       setVerdict(verdictValue);
     }
+  } else if (
+    newestDepth !== 0 &&
+    owner._fn !== undefined &&
+    unflushedStaged &&
+    !globalQueue._running
+  ) {
+    // FORK `newest`: an untracked read brings the memo current too.
+    setVerdict(null);
+    pullUnflushed(owner);
+    setVerdict(verdictValue);
+  }
+  // FORK `newest`: the writer's view of an optimistic node — its unflushed
+  // guess (what an optimistic updater composes on, `guessedValueOf`).
+  if (newestDepth !== 0) {
+    const g = pendingGuessOf(el);
+    if (g !== NOT_PENDING) return g;
   }
   // A live `affects()` mark on the node or a dependency (affects.ts): not
   // final by declaration — the value itself is read as below. The verdict is
@@ -434,6 +498,8 @@ function verdictValue(el: Signal<any> | Computed<any>, c: Computed<any> | null):
         // from it: the two settle as one (A15; posture C, 2026-09-15). An
         // untracked read elsewhere has no transaction to entangle.
         if (!tracked && flushTransaction !== null && !globalQueue._running) joinFuture(txOf(el));
+        // FORK `newest`: a rewrite not yet flushed is the newest value.
+        if (newestDepth !== 0) return staged(el);
         return heldLatest(el, tracked ? c : null);
       }
       return el._value;
@@ -461,7 +527,8 @@ function verdictValue(el: Signal<any> | Computed<any>, c: Computed<any> | null):
       // A28: an unflushed write is not what `latest` serves; a tracked
       // reader derived from the flushed world runs again in the carrying
       // flush.
-      if (globalQueue._running) return staged(el);
+      // FORK `newest`: the unflushed write is the newest value.
+      if (globalQueue._running || newestDepth !== 0) return staged(el);
       if (c !== null) markLateLinker(c);
     }
     return el._value;

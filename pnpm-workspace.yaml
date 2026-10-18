@@ -12,7 +12,7 @@ minimumReleaseAgeExclude:
   - '@solidjs/vite-plugin'
 
 overrides:
-  '@solidjs/signals': workspace:*
+  '@solidjs/signals': workspace:@seanalunni/signals@*
   solid-js: workspace:*
   '@solidjs/web': workspace:*
   '@solidjs/babel-plugin': workspace:*

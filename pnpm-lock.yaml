@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@solidjs/signals': workspace:*
+  '@solidjs/signals': workspace:@seanalunni/signals@*
   solid-js: workspace:*
   '@solidjs/web': workspace:*
   '@solidjs/babel-plugin': workspace:*
@@ -489,7 +489,7 @@ importers:
   packages/diagnostics:
     dependencies:
       '@solidjs/signals':
-        specifier: workspace:*
+        specifier: workspace:@seanalunni/signals@*
         version: link:../signals
     devDependencies:
       '@solidjs/web':
@@ -590,7 +590,7 @@ importers:
   packages/solid:
     dependencies:
       '@solidjs/signals':
-        specifier: workspace:*
+        specifier: workspace:@seanalunni/signals@*
         version: link:../signals
       csstype:
         specifier: ^3.1.0
@@ -614,7 +614,7 @@ importers:
         specifier: workspace:*
         version: link:../html
       '@solidjs/signals':
-        specifier: workspace:*
+        specifier: workspace:@seanalunni/signals@*
         version: link:../signals
       '@solidjs/universal':
         specifier: workspace:*
@@ -652,7 +652,7 @@ importers:
         specifier: ^5.4.0
         version: 5.4.0(tinybench@2.9.0)(vite@8.1.5(@types/node@25.6.0)(esbuild@0.27.7)(terser@5.49.0))(vitest@4.1.6)
       '@solidjs/signals':
-        specifier: workspace:*
+        specifier: workspace:@seanalunni/signals@*
         version: link:../signals
       fast-check:
         specifier: 3.23.2

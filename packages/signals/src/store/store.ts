@@ -50,6 +50,7 @@ import {
   captureWriteSnapshot,
   context,
   isEqual,
+  newestDepth,
   notePromotedWrite,
   ownedScopeWriteMessage,
   read as readNode,
@@ -1563,6 +1564,9 @@ function readSource(
     // key). A held container's committed frame is the node's.
     if (verdict === null || (!held && key !== undefined && !keyChanged(target, key, shape)))
       return held ? asBacking(k!._value) : target.v;
+    // FORK `newest`: a node-less staging outside a flush is an unflushed
+    // batch — the newest backing (a container node answers through core).
+    if (k === null && newestDepth !== 0 && !globalQueue._running) return pb;
     return k === null ? committed(target) : asBacking(readNode(k));
   }
   // A pass reading a key the batch left unchanged: the same value in both
