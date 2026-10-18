@@ -179,4 +179,14 @@ import { newest } from "@solidjs/signals";
 
 With pnpm the field is `pnpm.overrides`, and with Yarn it is `resolutions`. The version must match the `solid-js` release you use: each fork release is based on the `@solidjs/signals` release of the same version.
 
-The override is why the import above still says `@solidjs/signals`: that name now resolves to the fork, for your code and for `solid-js` alike. Don't import from `@seanalunni/signals` directly: it would resolve to a different copy than the one `solid-js` uses, unless both point to the same installed package.
+The override is why the import above still says `@solidjs/signals`: that name now resolves to the fork, for your code and for `solid-js` alike.
+
+**Don't add `@seanalunni/signals` as a dependency and import from it.** With npm and Yarn, the package manager would then install the fork twice: once as `node_modules/@solidjs/signals` (the override, used by `solid-js`) and once as `node_modules/@seanalunni/signals` (used by your import). Your bundler sees two different paths and loads two separate instances of the same code, each with its own internal state: its own flush queue, its own current owner, its own read flags. Then:
+
+- your signals are created through `solid-js` (`createSignal`, `createMemo`, …), so they live in the first copy;
+- `newest` comes from the second copy, which opens its read window in its own state;
+- when `newest` reads one of your signals, the code that runs is the first copy's, which knows nothing about that window.
+
+The result is that `newest(a)` behaves like a plain read and returns the old value, with no error to warn you.
+
+pnpm installs each package only once and links to it, so there the two names can end up pointing to the same folder and the copy stays one. Whether that happens depends on the package manager and on your bundler's settings, though, so don't rely on it: always import from `@solidjs/signals` and let the override point it to the fork.

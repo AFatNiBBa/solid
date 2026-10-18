@@ -35,6 +35,7 @@ pnpm + turbo monorepo, ~140k LOC:
 - The signals suite passes on Windows after these fixes (keep them in mind when writing new tests/scripts): `scripts/rules-index.mjs` normalizes paths to `/` (the generated RULES-INDEX.md and the module → namespace regexes depend on it), `tests/treeshake.test.ts` normalizes Rollup ids and roots with `toPosix`, `tests/dist-artifacts.test.ts` passes bundles to `node` via stdin instead of `-e` (command-line limit, `ENAMETOOLONG`)
 - Mass-deleting tracked files makes VS Code's git extension grab `.git/index.lock`: git commands run right after may fail with "index.lock: File exists" and need a retry
 - Outside signals, more tests and builds break only on Windows (not investigated further): `packages/solid` `published-declarations.spec.ts` (3 tests) and `cross-package-fields.spec.ts` (needs `packages/web/dist`); `packages/web` `build` fails in `types:copy-jsx`, which `spawnSync`s `prettier` without a shell (on Windows the binary is `prettier.cmd`). `packages/solid` tests also need `pnpm types` run first (turbo does it in CI)
+- Piping `pnpm run build` (signals) into another command (`| grep`) can hang forever: rollup sits idle under `npm-run-all`. Redirect the output to a file (`> log 2>&1`) and read that instead: the build takes ~25 s, the test suite ~1 min
 - Rollup prints TypeScript errors from a test file (`tests/store/derived-presence-async-3726.test.ts`) during `build:js`: they don't fail the build
 
 ## How to work
