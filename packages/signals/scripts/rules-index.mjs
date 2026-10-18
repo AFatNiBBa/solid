@@ -26,7 +26,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = path.join(ROOT, "docs");
 const read = p => fs.readFileSync(p, "utf8");
-const rel = p => path.relative(ROOT, p);
+// POSIX separators, so the generated index is the same on Windows
+const rel = p => path.relative(ROOT, p).replaceAll(path.sep, "/");
 const walk = (dir, out = []) => {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
@@ -165,7 +166,7 @@ function citationsIn(file) {
   for (const m of c.matchAll(CITE)) {
     if (m[1]) out.push(m[1]);
     else if (m[3]) {
-      const ns = nsFor(file, m[2]);
+      const ns = nsFor(rel(file), m[2]);
       // A bare R<n> the citing module's own file does not define is a
       // core-store rule (the base vocabulary every store module builds on).
       out.push(rules.has(ns + "-R" + m[3]) || m[2] ? ns + "-R" + m[3] : "CS-R" + m[3]);

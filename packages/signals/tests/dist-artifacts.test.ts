@@ -259,8 +259,10 @@ describe("@solidjs/signals bundled under `sideEffects: false`", () => {
       retained: Object.keys(inputs).filter(f => inputs[f].bytesInOutput > 0)
     };
   }
+  // The bundle goes through stdin: as an `-e` argument it exceeds the Windows
+  // command-line limit (ENAMETOOLONG).
   const run = (code: string) =>
-    execFileSync(process.execPath, ["--input-type=module", "-e", code], { encoding: "utf8" });
+    execFileSync(process.execPath, ["--input-type=module"], { input: code, encoding: "utf8" });
   const REPORT = `.then(() => process.stdout.write("ok"), e => process.stdout.write(String(e)))`;
   const STORE_APP = `
     import { action, affects, createStore } from "@solidjs/signals";

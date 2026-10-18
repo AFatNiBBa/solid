@@ -1,2 +1,9 @@
+# Always check out text files with LF, whatever the local core.autocrlf: scripts
+# and tests split on "\n" (e.g. packages/signals/scripts/rules-index.mjs)
+* text=auto eol=lf
+
+# Committed with CRLF upstream: left as is, so it doesn't show up as modified
+/examples/rendering/shared/static/styles.css -text
+
 /packages/babel-plugin/test/** text eol=lf
 /packages/compiler/__tests__/** text eol=lf

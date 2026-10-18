@@ -11,12 +11,14 @@
  */
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build, transformWithEsbuild, type Rollup } from "vite";
 import { afterAll, describe, expect, it } from "vitest";
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), "../src");
+// Rollup module ids use "/" even on Windows, where node:path roots use "\".
+const toPosix = (p: string) => p.replaceAll(sep, "/");
 const tempDirs: string[] = [];
 
 afterAll(() => {
@@ -53,7 +55,7 @@ async function bundleFixture(
   const chunk = result[0].output[0];
   const retained = Object.entries(chunk.modules)
     .filter(([, mod]) => mod.renderedLength > 0)
-    .map(([id]) => id.replace(SRC + "/", ""));
+    .map(([id]) => toPosix(id).replace(toPosix(SRC) + "/", ""));
   // Vite lib-mode ES output is not truly minified; match the #2883 harness
   // (esbuild minify + `_`-prefixed property mangling, as the dist build does).
   const minified = await transformWithEsbuild(chunk.code, "out.js", {
@@ -592,11 +594,11 @@ describe("pay-for-use tree-shaking (#2883)", () => {
       }
     })) as Rollup.RollupOutput[];
     const chunk = result[0].output[0];
-    const distRoot = dirname(dist) + "/";
+    const distRoot = toPosix(dirname(dist)) + "/";
     return {
       retained: Object.entries(chunk.modules)
         .filter(([, mod]) => mod.renderedLength > 0)
-        .map(([id]) => id.replace(distRoot, "")),
+        .map(([id]) => toPosix(id).replace(distRoot, "")),
       bundledCode: chunk.code
     };
   }
@@ -701,10 +703,10 @@ describe("pay-for-use tree-shaking (#2883)", () => {
       }
     })) as Rollup.RollupOutput[];
     const chunk = result[0].output[0];
-    const root = dirname(dirname(entryFile)) + "/";
+    const root = toPosix(dirname(dirname(entryFile))) + "/";
     return Object.entries(chunk.modules)
       .filter(([, mod]) => mod.renderedLength > 0)
-      .map(([id]) => id.replace(root, ""));
+      .map(([id]) => toPosix(id).replace(root, ""));
   }
 
   const RECORDS_CONSUMER = `

@@ -46,7 +46,7 @@
   },
   "scripts": {
     "build": "npm-run-all -nl build:* && pnpm types",
-    "build:clean": "rimraf dist/dev dist/prod dist/observe dist/*.js",
+    "build:clean": "rimraf --glob dist/dev dist/prod dist/observe dist/*.js",
     "build:js": "rollup -c && node ./scripts/mangle-props.mjs dist/prod dist/observe && node ./scripts/check-pure.mjs dist/prod && node ./scripts/check-pure.mjs dist/observe",
     "types": "tsc -p tsconfig.build.json",
     "test": "vitest run",
