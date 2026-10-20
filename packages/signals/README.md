@@ -150,6 +150,16 @@ newest(() => "draft" in store);       // false
 newest(() => Object.keys(store));     // without "draft"
 ```
 
+### Why a separate function, and not plain reads
+
+The obvious alternative was to change plain reads themselves, so that `count()` returns the new value right after `setCount(...)`, as in 1.x `batch`. That doesn't work well with holds, and `newest` exists because of that:
+
+- **A plain read must match what you will read after the flush.** If `count()` returned the new value before the flush, and the flush then held the change, `count()` would go back to the old value until the async data arrived: new, then old, then new again.
+- **Knowing whether the flush will hold a change is expensive.** A hold depends on what is *downstream* of the value: whether something that depends on it is async, and whether the screen reads it. To answer correctly, a read before the flush would have to recompute everything that depends on the value, async memos included (starting their fetches), and see what the screen would wait for. Since writes of the same tick are held together, it would also have to do this for the unrelated writes of the tick.
+- **That is exactly the work you avoid by not calling `flush()`.** A read would no longer cost "this value and what it depends on", but potentially a large part of the app.
+
+`newest` sidesteps the problem by not caring about holds: it always returns the written value. It only has to look *upstream* (what the value depends on), which is cheap. And the meaning of plain reads, `latest` and `isPending` stays the same as in Solid 2.0.
+
 ## Things to know
 
 - **`newest` is for code, not for the screen.** For what you render, keep using plain reads. They are what keeps the screen consistent: they never show a write that the screen is still holding. `newest` deliberately ignores that guarantee.
